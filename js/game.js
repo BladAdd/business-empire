@@ -35,74 +35,86 @@
     muted: false
   };
 
-  var imgCache = {};
-  function imgOK(src) {
-    if (src in imgCache) return imgCache[src];
-    if (typeof Image === "undefined") return false;
-    var ok = false;
-    try {
-      var im = new Image();
-      im.onload = function () { ok = true; };
-      im.src = src;
-    } catch (e) {}
-    imgCache[src] = ok;
-    return ok;
+  var imgState = {};
+  function afterAssets() {
+    var src = assetSrc("assets/bg");
+    if (src) {
+      document.body.style.backgroundImage = "url(" + src + ")";
+      document.body.style.backgroundSize = "cover";
+      document.body.style.backgroundPosition = "center";
+    }
+    if (typeof render === "function") render();
   }
-  function iconHTML(src, emoji, cls) {
-    if (src && imgOK(src)) {
+  function preloadAsset(base) {
+    if (base in imgState) return;
+    if (typeof Image === "undefined") { imgState[base] = null; return; }
+    var cands = [base + ".png", base + ".svg"];
+    var i = 0;
+    var im = new Image();
+    im.onload = function () { imgState[base] = cands[i]; afterAssets(); };
+    im.onerror = function () {
+      i++;
+      if (i < cands.length) { im.src = cands[i]; } else { imgState[base] = null; afterAssets(); }
+    };
+    im.src = cands[i];
+  }
+  function assetSrc(base) { return imgState[base] || null; }
+  function iconHTML(base, emoji, cls) {
+    var src = assetSrc(base);
+    if (src) {
       return '<img class="' + (cls || "asset-ico") + '" src="' + src + '" alt="">';
     }
     return '<span class="' + (cls || "asset-emoji") + '">' + emoji + "</span>";
   }
-
-  function assetSrc(base) {
-    if (imgOK(base + ".png")) return base + ".png";
-    if (imgOK(base + ".svg")) return base + ".svg";
-    return null;
+  function preloadAssets() {
+    for (var i = 0; i < BUSINESSES.length; i++) {
+      preloadAsset("assets/img/business-" + BUSINESSES[i].id);
+    }
+    preloadAsset("assets/img/coin");
+    preloadAsset("assets/bg");
+    preloadAsset("assets/sprites/click-burst");
+    preloadAsset("assets/sprites/coin-fly");
+    preloadAsset("assets/sprites/confetti");
   }
 
   function sfx(name) {
     if (window.AudioManager) window.AudioManager.play(name);
   }
 
-  var spriteFxId = 0;
-  function playSpriteFx(url, frames, w, h, ms, left, top) {
-    if (!imgOK(url) || typeof document === "undefined") return;
+  function playSpriteFx(base, w, h, ms, left, top) {
+    preloadAsset(base);
+    var src = assetSrc(base);
+    if (!src) return;
     var fxLayer = $("fxLayer");
     if (!fxLayer) return;
     var fx = document.createElement("div");
-    fx.className = "fx";
+    fx.className = "fx fx-pop";
     fx.style.width = w + "px";
     fx.style.height = h + "px";
     fx.style.left = left + "px";
     fx.style.top = top + "px";
-    fx.style.backgroundImage = "url(" + url + ")";
-    fx.style.backgroundSize = (w * frames) + "px " + h + "px";
-    var name = "spriteStep" + (++spriteFxId);
-    var style = document.createElement("style");
-    style.textContent = "@keyframes " + name +
-      " { from { background-position-x: 0; } to { background-position-x: -" + (w * (frames - 1)) + "px; } }";
-    fx.style.animation = name + " " + ms + "ms steps(" + (frames - 1) + ", end) forwards";
-    document.head.appendChild(style);
-    fx.addEventListener("animationend", function () { fx.remove(); style.remove(); });
+    fx.style.backgroundImage = "url(" + src + ")";
+    fx.style.backgroundSize = "cover";
+    fx.style.animationDuration = (ms || 500) + "ms";
+    fx.addEventListener("animationend", function () { fx.remove(); });
     fxLayer.appendChild(fx);
   }
 
   function tapFx() {
     if (typeof tapBtn.getBoundingClientRect !== "function") return;
     var r = tapBtn.getBoundingClientRect();
-    playSpriteFx("assets/sprites/click-burst.png", 6, 100, 100, 450,
-      r.left + r.width / 2 - 50, r.top + r.height / 2 - 50);
+    playSpriteFx("assets/sprites/click-burst", 110, 110, 450,
+      r.left + r.width / 2 - 55, r.top + r.height / 2 - 55);
   }
   function coinFx() {
     if (typeof tapBtn.getBoundingClientRect !== "function") return;
     var r = tapBtn.getBoundingClientRect();
-    playSpriteFx("assets/sprites/coin-fly.png", 4, 64, 64, 500,
-      r.left + r.width / 2 - 32, r.top - 40);
+    playSpriteFx("assets/sprites/coin-fly", 70, 70, 550,
+      r.left + r.width / 2 - 35, r.top - 45);
   }
   function confettiFx() {
-    playSpriteFx("assets/sprites/confetti.png", 4, 160, 160, 600,
-      (window.innerWidth || 480) / 2 - 80, (window.innerHeight || 800) * 0.18);
+    playSpriteFx("assets/sprites/confetti", 170, 170, 650,
+      (window.innerWidth || 480) / 2 - 85, (window.innerHeight || 800) * 0.15);
   }
 
   var ysdk = null;
@@ -230,7 +242,7 @@
       if (bizLevel(BUSINESSES[i].id) > 0) topBiz = BUSINESSES[i];
     }
     if (topBiz) {
-      tapIcon.innerHTML = iconHTML(assetSrc("assets/img/business-" + topBiz.id), topBiz.emoji, "tap-ico");
+      tapIcon.innerHTML = iconHTML("assets/img/business-" + topBiz.id, topBiz.emoji, "tap-ico");
     }
 
     clickLvlEl.textContent = "×" + fmt(Math.pow(2, state.clickLvl - 1));
@@ -254,7 +266,7 @@
       var btnText = owned ? "Улучшить ×2\n" + fmt(cost) : "Купить: " + fmt(cost);
       html +=
         '<div class="biz-row">' +
-        '<div class="e">' + iconHTML(assetSrc("assets/img/business-" + b.id), b.emoji, "biz-ico") + "</div>" +
+        '<div class="e">' + iconHTML("assets/img/business-" + b.id, b.emoji, "biz-ico") + "</div>" +
         '<div class="biz-info">' +
         '<div class="n">' + b.name + (owned ? ' <span class="lvl">Ур. ' + lvl + "</span>" : "") + "</div>" +
         '<div class="ps">' + fmt(bizIncome(b)) + "/сек</div>" +
@@ -389,7 +401,7 @@
     var f = document.createElement("div");
     f.className = "float-num";
     f.innerHTML = (assetSrc("assets/img/coin")
-      ? '<img src="' + assetSrc("assets/img/coin") + '" style="width:20px;height:20px;vertical-align:-3px;"> '
+      ? '<img src="' + assetSrc("assets/img/coin") + '" style="width:20px;height:20px;vertical-align:-3px;border-radius:50%;"> '
       : "") + "+" + fmt(p);
     f.style.left = (35 + Math.random() * 30) + "%";
     tapWrap.appendChild(f);
@@ -500,19 +512,6 @@
     return null;
   }
 
-  (function loadBg() {
-    if (typeof Image === "undefined") return;
-    var src = assetSrc("assets/bg");
-    if (!src) return;
-    var im = new Image();
-    im.onload = function () {
-      document.body.style.backgroundImage = "url(" + src + ")";
-      document.body.style.backgroundSize = "cover";
-      document.body.style.backgroundPosition = "center";
-    };
-    im.src = src;
-  })();
-
   window.YaGames.init().then(function (sdk) {
     ysdk = sdk;
     if (sdk.features && sdk.features.LoadingAPI) sdk.features.LoadingAPI.ready();
@@ -540,6 +539,7 @@
     if (window.AudioManager) window.AudioManager.setMuted(state.muted);
     render();
     computeOffline();
+    preloadAssets();
   }).catch(function () {
     var src = loadLocal();
     if (src) {
@@ -556,5 +556,6 @@
     if (window.AudioManager) window.AudioManager.setMuted(state.muted);
     render();
     computeOffline();
+    preloadAssets();
   });
 })();

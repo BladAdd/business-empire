@@ -49,7 +49,7 @@
     }
     .tap-btn:active { transform: scale(.93); }
     .tap-btn .ico { font-size: 58px; line-height: 1; }
-    .tap-btn .ico .tap-ico { width: 64px; height: 64px; display: block; margin: 0 auto; }
+    .tap-btn .ico .tap-ico { width: 76px; height: 76px; display: block; margin: 0 auto; border-radius: 50%; object-fit: cover; border: 3px solid #fef3c7; }
     .tap-btn .lbl { margin-top: 6px; font-size: 15px; }
     .float-num {
       position: absolute; left: 50%; top: 40%;
@@ -98,7 +98,7 @@
       padding: 10px 12px;
     }
     .biz-row .e { font-size: 34px; line-height: 1; }
-    .biz-row .e .biz-ico { width: 44px; height: 44px; display: block; }
+    .biz-row .e .biz-ico { width: 48px; height: 48px; display: block; border-radius: 12px; object-fit: cover; border: 2px solid rgba(253,224,71,.5); }
     .biz-info { flex: 1; margin-left: 12px; min-width: 0; }
     .biz-info .n { font-size: 15px; font-weight: 700; }
     .biz-info .lvl { font-size: 11px; color: #fde047; font-weight: 700; }
@@ -128,6 +128,17 @@
 
     #fxLayer { position: fixed; inset: 0; pointer-events: none; z-index: 40; overflow: hidden; }
     .fx { position: absolute; background-repeat: no-repeat; pointer-events: none; }
+    .fx-pop {
+      border-radius: 50%;
+      border: 3px solid rgba(253,224,71,.8);
+      box-shadow: 0 0 24px rgba(253,224,71,.5);
+      animation: fxPop .5s ease-out forwards;
+    }
+    @keyframes fxPop {
+      0% { transform: scale(.4); opacity: 0; }
+      30% { transform: scale(1.05); opacity: 1; }
+      100% { transform: scale(1.25); opacity: 0; }
+    }
 
     .tap-btn.pulse { animation: tapPulse 2s ease-in-out infinite; }
     .tap-btn.boost-glow { box-shadow: 0 0 0 6px rgba(253,224,71,.35), 0 10px 34px rgba(245,158,11,.55); }
@@ -228,7 +239,7 @@
     </div>
   </div>
 
-  <script src="/sdk.js"></script>
+  <script src="sdk.js"></script>
   <script src="js/audio.js"></script>
   <script src="js/game.js"></script>
 </body>
