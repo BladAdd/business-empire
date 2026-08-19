@@ -55,6 +55,12 @@
     return '<span class="' + (cls || "asset-emoji") + '">' + emoji + "</span>";
   }
 
+  function assetSrc(base) {
+    if (imgOK(base + ".png")) return base + ".png";
+    if (imgOK(base + ".svg")) return base + ".svg";
+    return null;
+  }
+
   function sfx(name) {
     if (window.AudioManager) window.AudioManager.play(name);
   }
@@ -224,7 +230,7 @@
       if (bizLevel(BUSINESSES[i].id) > 0) topBiz = BUSINESSES[i];
     }
     if (topBiz) {
-      tapIcon.innerHTML = iconHTML("assets/img/business-" + topBiz.id + ".png", topBiz.emoji, "tap-ico");
+      tapIcon.innerHTML = iconHTML(assetSrc("assets/img/business-" + topBiz.id), topBiz.emoji, "tap-ico");
     }
 
     clickLvlEl.textContent = "×" + fmt(Math.pow(2, state.clickLvl - 1));
@@ -248,7 +254,7 @@
       var btnText = owned ? "Улучшить ×2\n" + fmt(cost) : "Купить: " + fmt(cost);
       html +=
         '<div class="biz-row">' +
-        '<div class="e">' + iconHTML("assets/img/business-" + b.id + ".png", b.emoji, "biz-ico") + "</div>" +
+        '<div class="e">' + iconHTML(assetSrc("assets/img/business-" + b.id), b.emoji, "biz-ico") + "</div>" +
         '<div class="biz-info">' +
         '<div class="n">' + b.name + (owned ? ' <span class="lvl">Ур. ' + lvl + "</span>" : "") + "</div>" +
         '<div class="ps">' + fmt(bizIncome(b)) + "/сек</div>" +
@@ -382,8 +388,8 @@
     tapFx();
     var f = document.createElement("div");
     f.className = "float-num";
-    f.innerHTML = (imgOK("assets/img/coin.png")
-      ? '<img src="assets/img/coin.png" style="width:20px;height:20px;vertical-align:-3px;"> '
+    f.innerHTML = (assetSrc("assets/img/coin")
+      ? '<img src="' + assetSrc("assets/img/coin") + '" style="width:20px;height:20px;vertical-align:-3px;"> '
       : "") + "+" + fmt(p);
     f.style.left = (35 + Math.random() * 30) + "%";
     tapWrap.appendChild(f);
@@ -496,13 +502,15 @@
 
   (function loadBg() {
     if (typeof Image === "undefined") return;
+    var src = assetSrc("assets/bg");
+    if (!src) return;
     var im = new Image();
     im.onload = function () {
-      document.body.style.backgroundImage = "url(assets/bg.png)";
+      document.body.style.backgroundImage = "url(" + src + ")";
       document.body.style.backgroundSize = "cover";
       document.body.style.backgroundPosition = "center";
     };
-    im.src = "assets/bg.png";
+    im.src = src;
   })();
 
   window.YaGames.init().then(function (sdk) {
