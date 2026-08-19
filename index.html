@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Бизнес-Империя</title>
+  <link rel="icon" href="assets/icon.png">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body { height: 100%; }
@@ -48,6 +49,7 @@
     }
     .tap-btn:active { transform: scale(.93); }
     .tap-btn .ico { font-size: 58px; line-height: 1; }
+    .tap-btn .ico .tap-ico { width: 64px; height: 64px; display: block; margin: 0 auto; }
     .tap-btn .lbl { margin-top: 6px; font-size: 15px; }
     .float-num {
       position: absolute; left: 50%; top: 40%;
@@ -96,6 +98,7 @@
       padding: 10px 12px;
     }
     .biz-row .e { font-size: 34px; line-height: 1; }
+    .biz-row .e .biz-ico { width: 44px; height: 44px; display: block; }
     .biz-info { flex: 1; margin-left: 12px; min-width: 0; }
     .biz-info .n { font-size: 15px; font-weight: 700; }
     .biz-info .lvl { font-size: 11px; color: #fde047; font-weight: 700; }
@@ -122,6 +125,20 @@
       max-width: 90vw; text-align: center;
     }
     .toast.show { opacity: 1; }
+
+    #fxLayer { position: fixed; inset: 0; pointer-events: none; z-index: 40; overflow: hidden; }
+    .fx { position: absolute; background-repeat: no-repeat; pointer-events: none; }
+
+    .tap-btn.pulse { animation: tapPulse 2s ease-in-out infinite; }
+    .tap-btn.boost-glow { box-shadow: 0 0 0 6px rgba(253,224,71,.35), 0 10px 34px rgba(245,158,11,.55); }
+    @keyframes tapPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+    .board-card { animation: popIn .25s ease-out; }
+    @keyframes popIn { from { transform: scale(.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .daily-btn:not(:disabled) { animation: dailyShimmer 3s ease-in-out infinite; }
+    @keyframes dailyShimmer { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.15); } }
+    @media (prefers-reduced-motion: reduce) {
+      .tap-btn.pulse, .daily-btn:not(:disabled), .board-card { animation: none; }
+    }
 
     .bottom-bar {
       position: fixed; left: 0; right: 0; bottom: 0;
@@ -198,9 +215,11 @@
     <button class="nav-btn" id="adBtn" type="button"><span class="e">🚀</span>Доход ×2<br>на 30 мин</button>
     <button class="nav-btn" id="boardBtn" type="button"><span class="e">🏆</span>Лидерборд</button>
     <button class="nav-btn" id="saveBtn" type="button"><span class="e">💾</span>Сохранить</button>
+    <button class="nav-btn" id="muteBtn" type="button"><span class="e">🔊</span>Звук</button>
   </nav>
 
   <div class="toast" id="toast"></div>
+  <div id="fxLayer"></div>
   <div class="board-pop hidden" id="boardPop">
     <div class="board-card">
       <h3>🏆 Богатейшие магнаты</h3>
@@ -210,6 +229,7 @@
   </div>
 
   <script src="/sdk.js"></script>
+  <script src="js/audio.js"></script>
   <script src="js/game.js"></script>
 </body>
 </html>

@@ -31,8 +31,73 @@
     lastSeen: Date.now(),
     dailyStreak: 0,
     lastDaily: "",
-    boostUntil: 0
+    boostUntil: 0,
+    muted: false
   };
+
+  var imgCache = {};
+  function imgOK(src) {
+    if (src in imgCache) return imgCache[src];
+    if (typeof Image === "undefined") return false;
+    var ok = false;
+    try {
+      var im = new Image();
+      im.onload = function () { ok = true; };
+      im.src = src;
+    } catch (e) {}
+    imgCache[src] = ok;
+    return ok;
+  }
+  function iconHTML(src, emoji, cls) {
+    if (src && imgOK(src)) {
+      return '<img class="' + (cls || "asset-ico") + '" src="' + src + '" alt="">';
+    }
+    return '<span class="' + (cls || "asset-emoji") + '">' + emoji + "</span>";
+  }
+
+  function sfx(name) {
+    if (window.AudioManager) window.AudioManager.play(name);
+  }
+
+  var spriteFxId = 0;
+  function playSpriteFx(url, frames, w, h, ms, left, top) {
+    if (!imgOK(url) || typeof document === "undefined") return;
+    var fxLayer = $("fxLayer");
+    if (!fxLayer) return;
+    var fx = document.createElement("div");
+    fx.className = "fx";
+    fx.style.width = w + "px";
+    fx.style.height = h + "px";
+    fx.style.left = left + "px";
+    fx.style.top = top + "px";
+    fx.style.backgroundImage = "url(" + url + ")";
+    fx.style.backgroundSize = (w * frames) + "px " + h + "px";
+    var name = "spriteStep" + (++spriteFxId);
+    var style = document.createElement("style");
+    style.textContent = "@keyframes " + name +
+      " { from { background-position-x: 0; } to { background-position-x: -" + (w * (frames - 1)) + "px; } }";
+    fx.style.animation = name + " " + ms + "ms steps(" + (frames - 1) + ", end) forwards";
+    document.head.appendChild(style);
+    fx.addEventListener("animationend", function () { fx.remove(); style.remove(); });
+    fxLayer.appendChild(fx);
+  }
+
+  function tapFx() {
+    if (typeof tapBtn.getBoundingClientRect !== "function") return;
+    var r = tapBtn.getBoundingClientRect();
+    playSpriteFx("assets/sprites/click-burst.png", 6, 100, 100, 450,
+      r.left + r.width / 2 - 50, r.top + r.height / 2 - 50);
+  }
+  function coinFx() {
+    if (typeof tapBtn.getBoundingClientRect !== "function") return;
+    var r = tapBtn.getBoundingClientRect();
+    playSpriteFx("assets/sprites/coin-fly.png", 4, 64, 64, 500,
+      r.left + r.width / 2 - 32, r.top - 40);
+  }
+  function confettiFx() {
+    playSpriteFx("assets/sprites/confetti.png", 4, 160, 160, 600,
+      (window.innerWidth || 480) / 2 - 80, (window.innerHeight || 800) * 0.18);
+  }
 
   var ysdk = null;
   var isStub = false;
@@ -52,7 +117,7 @@
       offlineClaim = $("offlineClaim"), offlineTriple = $("offlineTriple"),
       toastEl = $("toast"), adBtn = $("adBtn"), boardBtn = $("boardBtn"),
       saveBtn = $("saveBtn"), boardPop = $("boardPop"), boardRows = $("boardRows"),
-      boardClose = $("boardClose");
+      boardClose = $("boardClose"), muteBtn = $("muteBtn");
 
   function fmt(n) {
     if (!isFinite(n)) return "∞";
@@ -149,12 +214,18 @@
       boostPill.textContent = "🚀 Доход ×2: " + Math.floor(left / 60) + ":" + ("0" + (left % 60)).slice(-2);
     }
 
+    tapBtn.classList.add("pulse");
+    tapBtn.classList.toggle("boost-glow", boosted());
+    updateMuteBtn();
+
     tapLabel.textContent = "Заработать (+" + fmt(clickPower()) + ")";
     var topBiz = null;
     for (var i = 0; i < BUSINESSES.length; i++) {
       if (bizLevel(BUSINESSES[i].id) > 0) topBiz = BUSINESSES[i];
     }
-    if (topBiz) tapIcon.textContent = topBiz.emoji;
+    if (topBiz) {
+      tapIcon.innerHTML = iconHTML("assets/img/business-" + topBiz.id + ".png", topBiz.emoji, "tap-ico");
+    }
 
     clickLvlEl.textContent = "×" + fmt(Math.pow(2, state.clickLvl - 1));
     clickUpgradeBtn.textContent = fmt(clickUpgradeCost());
@@ -177,7 +248,7 @@
       var btnText = owned ? "Улучшить ×2\n" + fmt(cost) : "Купить: " + fmt(cost);
       html +=
         '<div class="biz-row">' +
-        '<div class="e">' + b.emoji + "</div>" +
+        '<div class="e">' + iconHTML("assets/img/business-" + b.id + ".png", b.emoji, "biz-ico") + "</div>" +
         '<div class="biz-info">' +
         '<div class="n">' + b.name + (owned ? ' <span class="lvl">Ур. ' + lvl + "</span>" : "") + "</div>" +
         '<div class="ps">' + fmt(bizIncome(b)) + "/сек</div>" +
@@ -195,6 +266,13 @@
     var day = Math.min(state.dailyStreak, 7);
     dailyBtn.disabled = done;
     dailyInfo.textContent = done ? "Забрано ✔" : (state.dailyStreak === 0 ? "1-й день" : day + "-й день подряд");
+  }
+
+  function updateMuteBtn() {
+    if (!muteBtn) return;
+    muteBtn.innerHTML = state.muted
+      ? '<span class="e">🔇</span>Звук'
+      : '<span class="e">🔊</span>Звук';
   }
 
   function updateOfflinePill() {
@@ -231,9 +309,12 @@
     }
     if (!b) return;
     var cost = bizUpgradeCost(b);
-    if (state.money < cost) { toast("Не хватает денег!"); return; }
+    if (state.money < cost) { sfx("error"); toast("Не хватает денег!"); return; }
     state.money -= cost;
     state.biz[id] = bizLevel(id) + 1;
+    sfx("buy");
+    confettiFx();
+    coinFx();
     if (bizLevel(id) === 1) toast("🎉 " + b.name + " открыт!");
     persistDebounced();
     tryInterstitial();
@@ -246,6 +327,8 @@
     pendingOffline = 0;
     offlineBox.classList.add("hidden");
     gainMoney(amount);
+    sfx("coin");
+    confettiFx();
     toast("Заработано офлайн: " + fmt(amount));
     persistDebounced();
     render();
@@ -295,9 +378,13 @@
   tapBtn.addEventListener("click", function () {
     var p = clickPower();
     gainMoney(p);
+    sfx("click");
+    tapFx();
     var f = document.createElement("div");
     f.className = "float-num";
-    f.textContent = "+" + fmt(p);
+    f.innerHTML = (imgOK("assets/img/coin.png")
+      ? '<img src="assets/img/coin.png" style="width:20px;height:20px;vertical-align:-3px;"> '
+      : "") + "+" + fmt(p);
     f.style.left = (35 + Math.random() * 30) + "%";
     tapWrap.appendChild(f);
     setTimeout(function () { f.remove(); }, 850);
@@ -306,9 +393,10 @@
 
   clickUpgradeBtn.addEventListener("click", function () {
     var cost = clickUpgradeCost();
-    if (state.money < cost) { toast("Не хватает денег!"); return; }
+    if (state.money < cost) { sfx("error"); toast("Не хватает денег!"); return; }
     state.money -= cost;
     state.clickLvl++;
+    sfx("upgrade");
     persistDebounced();
     render();
   });
@@ -330,6 +418,8 @@
     }
     var claim = function () {
       gainMoney(reward);
+      sfx("reward");
+      confettiFx();
       toast("🎁 Награда: " + fmt(reward) + " (" + state.dailyStreak + "-й день)");
       persistDebounced();
       render();
@@ -352,10 +442,18 @@
   adBtn.addEventListener("click", function () {
     showRewarded(function () {
       state.boostUntil = Date.now() + BOOST_SEC * 1000;
+      sfx("boost");
       toast("🚀 Доход ×2 на 30 минут!");
       persistDebounced();
       render();
     }, "boost");
+  });
+
+  muteBtn.addEventListener("click", function () {
+    state.muted = !state.muted;
+    if (window.AudioManager) window.AudioManager.setMuted(state.muted);
+    updateMuteBtn();
+    persistDebounced();
   });
 
   boardBtn.addEventListener("click", openBoard);
@@ -396,6 +494,17 @@
     return null;
   }
 
+  (function loadBg() {
+    if (typeof Image === "undefined") return;
+    var im = new Image();
+    im.onload = function () {
+      document.body.style.backgroundImage = "url(assets/bg.png)";
+      document.body.style.backgroundSize = "cover";
+      document.body.style.backgroundPosition = "center";
+    };
+    im.src = "assets/bg.png";
+  })();
+
   window.YaGames.init().then(function (sdk) {
     ysdk = sdk;
     if (sdk.features && sdk.features.LoadingAPI) sdk.features.LoadingAPI.ready();
@@ -417,8 +526,10 @@
       state.dailyStreak = src.dailyStreak || 0;
       state.lastDaily = src.lastDaily || "";
       state.boostUntil = src.boostUntil || 0;
+      state.muted = !!src.muted;
       if (src.lastSeen) state.lastSeen = src.lastSeen;
     }
+    if (window.AudioManager) window.AudioManager.setMuted(state.muted);
     render();
     computeOffline();
   }).catch(function () {
@@ -431,8 +542,10 @@
       state.dailyStreak = src.dailyStreak || 0;
       state.lastDaily = src.lastDaily || "";
       state.boostUntil = src.boostUntil || 0;
+      state.muted = !!src.muted;
       if (src.lastSeen) state.lastSeen = src.lastSeen;
     }
+    if (window.AudioManager) window.AudioManager.setMuted(state.muted);
     render();
     computeOffline();
   });
